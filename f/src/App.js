@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import ViewBillModal from './ViewBillModal';
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = 'https://proo-dg52.onrender.com/api';
 const MAX_RETRIES = 3;
 
 const PRODUCT_CATEGORIES = [
