@@ -209,18 +209,13 @@ app.get('/api/bills/:id', async (req, res) => {
 // Create bill
 app.post('/api/bills', async (req, res) => {
   try {
-    // Generate bill number
-    const billCount = await Bill.countDocuments();
-    const billNumber = `BILL-${String(billCount + 1).padStart(6, '0')}`;
-    
+    const billNumber = `BILL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const billData = {
       ...req.body,
       billNumber
     };
-    
     const bill = new Bill(billData);
     const savedBill = await bill.save();
-    
     // Update product units after sale
     for (const item of savedBill.items) {
       await Product.findByIdAndUpdate(
@@ -228,7 +223,6 @@ app.post('/api/bills', async (req, res) => {
         { $inc: { units: -item.quantity } }
       );
     }
-    
     const populatedBill = await Bill.findById(savedBill._id).populate('items.productId');
     res.status(201).json(populatedBill);
   } catch (error) {
