@@ -10,7 +10,10 @@ import {
   AlertTriangle,
   TrendingUp,
   Eye,
-  X
+  X,
+  CheckCircle,
+  Clock,
+  MessageCircle
 } from 'lucide-react';
 import ViewBillModal from './ViewBillModal';
 
@@ -1118,7 +1121,7 @@ const ProductForm = ({ product, onClose, onSave }) => {
                     className={`flex items-center space-x-2 p-3 rounded-lg text-left transition-all duration-200 hover:scale-105 ${
                       formData.category === cat 
                         ? 'bg-blue-100 border-2 border-blue-300 text-blue-700' 
-                        : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100'
+                        : 'bg-gray-50 border border-gray-200 text-gray-700 hover:bg-gray-100 hover:shadow-md hover:border-gray-300'
                     }`}
                   >
                     <span className="text-lg">{getCategoryIcon(cat)}</span>
@@ -1233,6 +1236,7 @@ const BillingSection = ({ bills, setBills, products, fetchBills }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [isLoading, setIsLoading] = useState(false);
 
   const filteredBills = bills.filter(bill => {
     const matchesSearch = bill.billNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1273,13 +1277,22 @@ const BillingSection = ({ bills, setBills, products, fetchBills }) => {
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this bill?')) {
+      setIsLoading(true);
       try {
-        await fetch(`${API_BASE_URL}/bills/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/bills/${id}`, {
           method: 'DELETE',
         });
-        fetchBills();
+        
+        if (response.ok) {
+          fetchBills();
+        } else {
+          alert('Failed to delete bill. Please try again.');
+        }
       } catch (error) {
         console.error('Error deleting bill:', error);
+        alert('Error deleting bill. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
     }
   };
@@ -1296,11 +1309,18 @@ const BillingSection = ({ bills, setBills, products, fetchBills }) => {
   const paidAmount = bills.filter(b => b.paymentStatus === 'paid').reduce((sum, bill) => sum + bill.totalAmount, 0);
   const pendingAmount = bills.filter(b => b.paymentStatus !== 'paid').reduce((sum, bill) => sum + bill.totalAmount, 0);
 
+  // Calculate additional stats
+  const todayBills = bills.filter(bill => {
+    const today = new Date().toDateString();
+    return new Date(bill.createdAt).toDateString() === today;
+  });
+  const todayRevenue = todayBills.reduce((sum, bill) => sum + bill.totalAmount, 0);
+
   return (
     <div className="space-y-8 animate-fadeIn">
-      {/* Enhanced Header */}
+      {/* Enhanced Header with Stats */}
       <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-100">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
           <div className="mb-4 lg:mb-0">
             <h2 className="text-4xl font-bold text-gray-900 mb-2 flex items-center">
               <Receipt className="h-8 w-8 text-green-600 mr-3" />
@@ -1309,16 +1329,6 @@ const BillingSection = ({ bills, setBills, products, fetchBills }) => {
             <p className="text-gray-600">Create and manage customer invoices and payments</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex items-center space-x-4 text-sm text-gray-600">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span>Paid: ₹{paidAmount.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span>Pending: ₹{pendingAmount.toLocaleString()}</span>
-              </div>
-            </div>
             <button
               onClick={() => setShowForm(true)}
               className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold text-lg hover:from-green-600 hover:to-green-700 focus:outline-none focus:ring-4 focus:ring-green-300 focus:ring-opacity-50"
@@ -1326,6 +1336,57 @@ const BillingSection = ({ bills, setBills, products, fetchBills }) => {
               <Plus className="h-5 w-5 transition-transform duration-200 group-hover:rotate-90" />
               <span>Create Bill</span>
             </button>
+          </div>
+        </div>
+
+        {/* Enhanced Stats Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Total Revenue</p>
+                <p className="text-2xl font-bold text-green-600">₹{totalRevenue.toLocaleString()}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <Receipt className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Paid Amount</p>
+                <p className="text-2xl font-bold text-green-600">₹{paidAmount.toLocaleString()}</p>
+              </div>
+              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-red-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Pending Amount</p>
+                <p className="text-2xl font-bold text-red-600">₹{pendingAmount.toLocaleString()}</p>
+              </div>
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <Clock className="h-6 w-6 text-red-600" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="bg-white rounded-lg p-4 border border-blue-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Today's Revenue</p>
+                <p className="text-2xl font-bold text-blue-600">₹{todayRevenue.toLocaleString()}</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                <TrendingUp className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1412,124 +1473,120 @@ const BillingSection = ({ bills, setBills, products, fetchBills }) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sortedBills.map((bill, index) => {
-                const statusColors = getStatusColor(bill.paymentStatus);
-                return (
-                  <tr key={bill._id} className="hover:bg-gray-50 transition-all duration-200 hover:shadow-sm animate-fadeIn group" style={{ animationDelay: `${index * 50}ms` }}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                          <Receipt className="h-5 w-5 text-green-600" />
+              {sortedBills.length === 0 ? (
+                <tr>
+                  <td colSpan="6" className="px-6 py-12 text-center">
+                    <div className="text-6xl mb-4">📄</div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No bills found</h3>
+                    <p className="text-gray-600 mb-6">
+                      {searchTerm || statusFilter !== 'all' 
+                        ? 'Try adjusting your search or filter criteria'
+                        : 'Create your first bill to get started'
+                      }
+                    </p>
+                    {!searchTerm && statusFilter === 'all' && (
+                      <button
+                        onClick={() => setShowForm(true)}
+                        className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
+                      >
+                        Create First Bill
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                sortedBills.map((bill, index) => {
+                  const statusColors = getStatusColor(bill.paymentStatus);
+                  return (
+                    <tr key={bill._id} className="hover:bg-gray-50 transition-all duration-200 hover:shadow-sm animate-fadeIn group" style={{ animationDelay: `${index * 50}ms` }}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                            <Receipt className="h-5 w-5 text-green-600" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-gray-900 group-hover:text-green-600 transition-colors duration-200">
+                              {bill.billNumber}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {bill.items?.length || 0} items
+                            </div>
+                          </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-bold text-gray-900 group-hover:text-green-600 transition-colors duration-200">
-                            {bill.billNumber}
+                          <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-200">
+                            {bill.customerName}
+                          </div>
+                          <div className="text-sm text-gray-500 group-hover:text-gray-700 transition-colors duration-200">
+                            📱 {bill.customerPhone || 'No phone'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-lg font-bold text-green-600 group-hover:text-green-700 transition-colors duration-200">
+                          ₹{bill.totalAmount.toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border transition-all duration-200 hover:scale-105 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
+                          {bill.paymentStatus.charAt(0).toUpperCase() + bill.paymentStatus.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 group-hover:text-gray-700 transition-colors duration-200">
+                        <div>
+                          <div className="font-medium">
+                            {new Date(bill.createdAt).toLocaleDateString()}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {bill.items?.length || 0} items
+                            {new Date(bill.createdAt).toLocaleTimeString()}
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-600 transition-colors duration-200">
-                          {bill.customerName}
-                        </div>
-                        <div className="text-sm text-gray-500 group-hover:text-gray-700 transition-colors duration-200">
-                          📱 {bill.customerPhone || 'No phone'}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-lg font-bold text-green-600 group-hover:text-green-700 transition-colors duration-200">
-                        ₹{bill.totalAmount.toLocaleString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full border transition-all duration-200 hover:scale-105 ${statusColors.bg} ${statusColors.text} ${statusColors.border}`}>
-                        {bill.paymentStatus.charAt(0).toUpperCase() + bill.paymentStatus.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 group-hover:text-gray-700 transition-colors duration-200">
-                      <div>
-                        <div className="font-medium">
-                          {new Date(bill.createdAt).toLocaleDateString()}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {new Date(bill.createdAt).toLocaleTimeString()}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setViewingBill(bill)}
-                          className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 hover:scale-110 transition-all duration-200 shadow-md text-white relative group"
-                          title="View Bill Details"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </button>
-                        {bill.customerPhone && (
-                          <a
-                            href={`https://wa.me/91${bill.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
-                              `Hello ${bill.customerName},\nHere are your bill details:\nBill No: ${bill.billNumber}\nAmount: ₹${bill.totalAmount}\nStatus: ${bill.paymentStatus}\nThank you for shopping with us!`
-                            )}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 hover:scale-110 transition-all duration-200 shadow-md text-white"
-                            title="Send bill via WhatsApp"
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setViewingBill(bill)}
+                            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-blue-500 hover:bg-blue-600 hover:scale-110 transition-all duration-200 shadow-md text-white relative group"
+                            title="View Bill Details"
                           >
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-5 h-5">
-                              <path d="M20.52 3.48A11.94 11.94 0 0012 0C5.37 0 0 5.37 0 12c0 2.12.55 4.13 1.6 5.92L0 24l6.18-1.62A11.94 11.94 0 0012 24c6.63 0 12-5.37 12-12 0-3.19-1.24-6.19-3.48-8.52zM12 22c-1.85 0-3.63-.5-5.18-1.44l-.37-.22-3.67.96.98-3.58-.24-.37A9.94 9.94 0 012 12c0-5.52 4.48-10 10-10s10 4.48 10 10-4.48 10-10 10zm5.07-7.75c-.28-.14-1.65-.81-1.9-.9-.25-.09-.43-.14-.61.14-.18.28-.7.9-.86 1.08-.16.18-.32.2-.6.07-.28-.14-1.18-.44-2.25-1.4-.83-.74-1.39-1.65-1.55-1.93-.16-.28-.02-.43.12-.57.13-.13.28-.34.42-.51.14-.17.18-.29.28-.48.09-.19.05-.36-.02-.5-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.62-.47-.16-.01-.36-.01-.56-.01-.19 0-.5.07-.76.34-.26.27-1 1-.97 2.43.03 1.43 1.03 2.81 1.18 3 .15.19 2.03 3.1 4.93 4.23.69.3 1.23.48 1.65.61.69.22 1.32.19 1.81.12.55-.08 1.65-.67 1.88-1.32.23-.65.23-1.2.16-1.32-.07-.12-.25-.19-.53-.33z" />
-                            </svg>
-                          </a>
-                        )}
-                        <button
-                          onClick={() => {
-                            setEditingBill(bill);
-                            setShowForm(true);
-                          }}
-                          className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-yellow-500 hover:bg-yellow-600 hover:scale-110 transition-all duration-200 shadow-md text-white"
-                          title="Edit Bill"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(bill._id)}
-                          className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 hover:scale-110 transition-all duration-200 shadow-md text-white"
-                          title="Delete Bill"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                            <Eye className="h-4 w-4" />
+                          </button>
+                          {bill.customerPhone && (
+                            <a
+                              href={`https://wa.me/91${bill.customerPhone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                `Hello ${bill.customerName},\nHere are your bill details:\nBill No: ${bill.billNumber}\nAmount: ₹${bill.totalAmount}\nStatus: ${bill.paymentStatus}\nThank you for shopping with us!`
+                              )}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-green-500 hover:bg-green-600 hover:scale-110 transition-all duration-200 shadow-md text-white"
+                              title="Send bill via WhatsApp"
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </a>
+                          )}
+                          <button
+                            onClick={() => handleDelete(bill._id)}
+                            disabled={isLoading}
+                            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-red-500 hover:bg-red-600 hover:scale-110 transition-all duration-200 shadow-md text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete Bill"
+                          >
+                            {isLoading ? (
+                              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
-
-        {/* Empty State */}
-        {sortedBills.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-6xl mb-4">📄</div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No bills found</h3>
-            <p className="text-gray-600 mb-6">
-              {searchTerm || statusFilter !== 'all' 
-                ? 'Try adjusting your search or filter criteria'
-                : 'Get started by creating your first bill'
-              }
-            </p>
-            <button
-              onClick={() => setShowForm(true)}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors duration-200"
-            >
-              Create Your First Bill
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Bill Form Modal */}
@@ -1542,7 +1599,11 @@ const BillingSection = ({ bills, setBills, products, fetchBills }) => {
             setShowForm(false);
             setEditingBill(null);
           }}
-          onSave={fetchBills}
+          onSave={() => {
+            fetchBills();
+            setShowForm(false);
+            setEditingBill(null);
+          }}
         />
       )}
 
@@ -1566,13 +1627,11 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
     paymentStatus: bill?.paymentStatus || 'pending',
     items: bill?.items || []
   });
-
-  const [newItem, setNewItem] = useState({
-    productId: '',
-    quantity: 1
-  });
-
-  const [isNewCustomer, setIsNewCustomer] = useState(false);
+  const [newItem, setNewItem] = useState({ productId: '', quantity: 1 });
+  const [formErrors, setFormErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [backendError, setBackendError] = useState('');
+  const [customerType, setCustomerType] = useState(bill?.customerName && bill?.customerPhone ? 'existing' : 'new');
 
   // Get unique customers from existing bills
   const existingCustomers = React.useMemo(() => {
@@ -1591,15 +1650,39 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
     return Array.from(customers.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [bills]);
 
-  const handleCustomerSelect = (customerKey) => {
-    if (customerKey === 'new') {
+  // Handle customer type change
+  const handleCustomerTypeChange = (type) => {
+    setCustomerType(type);
+    setFormErrors({});
+    if (type === 'existing') {
       setFormData({ ...formData, customerName: '', customerPhone: '' });
-      setIsNewCustomer(true);
     } else {
+      setFormData({ ...formData, customerName: '', customerPhone: '' });
+    }
+  };
+
+  // Handle existing customer select
+  const handleExistingCustomerSelect = (customerKey) => {
+    if (customerKey) {
       const [name, phone] = customerKey.split(' - ');
       setFormData({ ...formData, customerName: name, customerPhone: phone });
-      setIsNewCustomer(false);
+    } else {
+      setFormData({ ...formData, customerName: '', customerPhone: '' });
     }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (customerType === 'new') {
+      if (!formData.customerName.trim()) errors.customerName = 'Customer name is required';
+      if (!formData.customerPhone.trim()) errors.customerPhone = 'Phone number is required';
+      else if (!/^\d{10}$/.test(formData.customerPhone.replace(/\D/g, ''))) errors.customerPhone = 'Please enter a valid 10-digit phone number';
+    } else {
+      if (!formData.customerName || !formData.customerPhone) errors.existingCustomer = 'Please select an existing customer';
+    }
+    if (!formData.items || formData.items.length === 0) errors.items = 'At least one item is required';
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const addItem = () => {
@@ -1622,142 +1705,165 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
     });
 
     setNewItem({ productId: '', quantity: 1 });
+    setFormErrors({ ...formErrors, items: null }); // Clear items error
   };
 
   const removeItem = (index) => {
-    const newItems = formData.items.filter((_, i) => i !== index);
-    setFormData({ ...formData, items: newItems });
+    setFormData({
+      ...formData,
+      items: formData.items.filter((_, i) => i !== index)
+    });
   };
 
   const totalAmount = formData.items.reduce((sum, item) => sum + item.totalPrice, 0);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setBackendError('');
+    if (!validateForm()) return;
+    setSubmitting(true);
     try {
+      // Only send required fields, do NOT send billNumber
       const billData = {
-        ...formData,
-        totalAmount
+        customerName: formData.customerName,
+        customerPhone: formData.customerPhone,
+        items: formData.items.map(item => ({
+          productId: typeof item.productId === 'object' ? item.productId._id : item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.totalPrice
+        })),
+        totalAmount,
+        paymentStatus: formData.paymentStatus,
+        paymentMethod: formData.paymentMethod
       };
 
-      const url = bill 
+      // Robust endpoint/method selection
+      const isEdit = !!bill && !!bill._id;
+      const url = isEdit
         ? `${API_BASE_URL}/bills/${bill._id}`
         : `${API_BASE_URL}/bills`;
-      
-      const method = bill ? 'PUT' : 'POST';
-      
-      await fetch(url, {
+      const method = isEdit ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(billData),
       });
-      
+
+      if (!response.ok) {
+        let msg = 'Failed to save bill';
+        try {
+          const data = await response.json();
+          if (data && data.message) msg = data.message;
+        } catch (err) {
+          msg += ' (and could not parse backend error)';
+        }
+        setBackendError(msg);
+        setSubmitting(false);
+        return;
+      }
       onSave();
       onClose();
     } catch (error) {
-      console.error('Error saving bill:', error);
+      setBackendError('Network error. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  // Pure validation for button disabling (does NOT set state)
+  const isFormValid = () => {
+    if (customerType === 'new') {
+      if (!formData.customerName.trim()) return false;
+      if (!formData.customerPhone.trim()) return false;
+      if (!/^\d{10}$/.test(formData.customerPhone.replace(/\D/g, ''))) return false;
+    } else {
+      if (!formData.customerName || !formData.customerPhone) return false;
+    }
+    if (!formData.items || formData.items.length === 0) return false;
+    return true;
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
-      <div className="bg-white rounded-lg w-full max-w-lg sm:max-w-md p-4 sm:p-6 shadow-lg relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg w-full max-w-4xl p-4 sm:p-6 shadow-lg relative max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {bill ? 'Edit Bill' : 'Create New Bill'}
-          </h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-            <X className="h-5 w-5" />
-          </button>
+          <h3 className="text-lg font-semibold text-gray-900">{bill ? 'Edit Bill' : 'Create New Bill'}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
         </div>
-        
+        {(backendError || formErrors.submit) && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+            <div className="flex items-center space-x-2">
+              <span className="text-red-600">⚠️</span>
+              <span className="text-sm font-medium text-red-800">{backendError || formErrors.submit}</span>
+            </div>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Info */}
           <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-md font-medium text-blue-900">Customer Information</h4>
-              <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">
-                {existingCustomers.length} existing customers
-              </span>
+              <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">{existingCustomers.length} existing customers</span>
             </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-                <label className="block text-sm font-medium text-blue-700 mb-1">
-                  Select Customer
+            {/* Customer Type Selector */}
+            <div className="mb-4 flex gap-6">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="customerType" value="existing" checked={customerType === 'existing'} onChange={() => handleCustomerTypeChange('existing')} />
+                <span className="text-sm">Existing Customer</span>
               </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="radio" name="customerType" value="new" checked={customerType === 'new'} onChange={() => handleCustomerTypeChange('new')} />
+                <span className="text-sm">New Customer</span>
+              </label>
+            </div>
+            {/* Existing Customer Dropdown */}
+            {customerType === 'existing' && (
+              <div className="mb-3">
+                <label className="block text-sm font-medium text-blue-700 mb-1">Select Existing Customer</label>
                 <select
                   value={formData.customerName && formData.customerPhone ? `${formData.customerName} - ${formData.customerPhone}` : ''}
-                  onChange={(e) => {
-                    const selectedValue = e.target.value;
-                    if (selectedValue === 'new') {
-                      setFormData({ ...formData, customerName: '', customerPhone: '' });
-                      setIsNewCustomer(true);
-                    } else if (selectedValue) {
-                      const [name, phone] = selectedValue.split(' - ');
-                      setFormData({ ...formData, customerName: name, customerPhone: phone });
-                      setIsNewCustomer(false);
-                    } else {
-                      setFormData({ ...formData, customerName: '', customerPhone: '' });
-                      setIsNewCustomer(false);
-                    }
-                  }}
+                  onChange={e => handleExistingCustomerSelect(e.target.value)}
                   className="w-full px-3 py-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white"
                 >
                   <option value="">👤 Select existing customer...</option>
                   {existingCustomers.map((customer) => (
-                    <option key={`${customer.name}-${customer.phone}`} value={`${customer.name} - ${customer.phone}`}>
-                      📱 {customer.name} - {customer.phone}
-                    </option>
+                    <option key={`${customer.name}-${customer.phone}`} value={`${customer.name} - ${customer.phone}`}>📱 {customer.name} - {customer.phone}</option>
                   ))}
-                  <option value="new">➕ Add New Customer</option>
                 </select>
-            </div>
-            
-            <div>
-                <label className="block text-sm font-medium text-blue-700 mb-1">
-                  Phone Number
-              </label>
-              <input
-                type="tel"
-                value={formData.customerPhone}
-                onChange={(e) => setFormData({ ...formData, customerPhone: e.target.value })}
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white"
-                  placeholder="📱 Enter phone number"
-              />
-            </div>
-            </div>
-
-            {/* Manual Customer Name Input (shown when "Add New Customer" is selected) */}
-            {isNewCustomer && (
-              <div className="mt-3">
-                <label className="block text-sm font-medium text-blue-700 mb-1">
-                  New Customer Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.customerName}
-                  onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                  className="w-full px-3 py-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white"
-                  placeholder="👤 Enter customer name"
-                />
+                {formErrors.existingCustomer && <p className="mt-1 text-xs text-red-600">{formErrors.existingCustomer}</p>}
               </div>
             )}
-
-            {/* Selected Customer Display */}
-            {formData.customerName && formData.customerPhone && (
-              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
-                <div className="flex items-center space-x-2">
-                  <span className="text-green-600">✅</span>
-                  <span className="text-sm font-medium text-green-800">
-                    Selected: {formData.customerName} ({formData.customerPhone})
-                  </span>
+            {/* New Customer Fields */}
+            {customerType === 'new' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-1">Customer Name</label>
+                  <input
+                    type="text"
+                    value={formData.customerName}
+                    onChange={e => setFormData({ ...formData, customerName: e.target.value })}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white"
+                    placeholder="👤 Enter customer name"
+                  />
+                  {formErrors.customerName && <p className="mt-1 text-xs text-red-600">{formErrors.customerName}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-1">Phone Number</label>
+                  <input
+                    type="tel"
+                    value={formData.customerPhone}
+                    onChange={e => setFormData({ ...formData, customerPhone: e.target.value })}
+                    className="w-full px-3 py-2 border border-blue-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base bg-white"
+                    placeholder="📱 Enter phone number"
+                  />
+                  {formErrors.customerPhone && <p className="mt-1 text-xs text-red-600">{formErrors.customerPhone}</p>}
                 </div>
               </div>
             )}
           </div>
-
           {/* Add Items */}
           <div className="border-t pt-4">
             <h4 className="text-md font-medium text-gray-900 mb-3">Add Items</h4>
@@ -1774,7 +1880,7 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
                   <option value="">Select Product</option>
                   {products.map(product => (
                     <option key={product._id} value={product._id}>
-                      {product.name} - ₹{product.price}
+                      {product.name} - ₹{product.price} (Stock: {product.units})
                     </option>
                   ))}
                 </select>
@@ -1787,23 +1893,27 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
                   type="number"
                   min="1"
                   value={newItem.quantity}
-                  onChange={(e) => setNewItem({ ...newItem, quantity: e.target.value })}
+                  onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm sm:text-base"
                 />
               </div>
               <button
                 type="button"
                 onClick={addItem}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors duration-200"
               >
                 Add Item
               </button>
             </div>
+            {formErrors.items && (
+              <p className="mt-1 text-xs text-red-600">{formErrors.items}</p>
+            )}
           </div>
+          
           {/* Items List */}
           <div className="mt-4">
             <h4 className="text-md font-medium text-gray-900 mb-3">
-              Items List
+              Items List ({formData.items.length} items)
             </h4>
             <div className="bg-gray-50 rounded-lg p-4">
               {formData.items.length > 0 ? (
@@ -1844,8 +1954,9 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <button
+                            type="button"
                             onClick={() => removeItem(index)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600 hover:text-red-700 transition-colors duration-200"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -1859,19 +1970,21 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
               )}
             </div>
           </div>
+          
           {/* Total Amount */}
-          <div className="flex justify-between items-center mt-4">
+          <div className="flex justify-between items-center mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
             <span className="text-lg font-semibold text-gray-900">Total Amount:</span>
-            <span className="text-lg font-semibold text-green-600">
+            <span className="text-2xl font-bold text-green-600">
               ₹{totalAmount.toFixed(2)}
             </span>
           </div>
+          
           {/* Payment Info */}
           <div className="border-t pt-4">
             <h4 className="text-md font-medium text-gray-900 mb-3">
               Payment Information
             </h4>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Payment Method
@@ -1903,20 +2016,23 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
               </div>
             </div>
           </div>
-          {/* Actions */}
-          <div className="flex justify-end space-x-3 pt-4">
+          
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors duration-200"
+              disabled={submitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors duration-200"
+              disabled={submitting || !isFormValid()}
             >
-              {bill ? 'Update Bill' : 'Create Bill'}
+              {submitting ? 'Saving...' : bill ? 'Update Bill' : 'Create Bill'}
             </button>
           </div>
         </form>
@@ -1924,24 +2040,6 @@ const BillForm = ({ bill, products, bills, onClose, onSave }) => {
     </div>
   );
 };
-
-// Toast Component
-const Toast = ({ message, type, onClose }) => (
-  <div className={`fixed top-6 right-6 z-50 px-6 py-3 rounded shadow-lg text-white ${type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}
-    style={{ minWidth: 200 }}>
-    <div className="flex items-center justify-between">
-      <span>{message}</span>
-      <button onClick={onClose} className="ml-4 font-bold">&times;</button>
-    </div>
-  </div>
-);
-
-// Spinner Component
-const Spinner = () => (
-  <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-20 z-50">
-    <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-solid"></div>
-  </div>
-);
 
 // Customers Section Component
 const CustomersSection = ({ bills, fetchBills }) => {
@@ -2049,24 +2147,6 @@ const CustomersSection = ({ bills, fetchBills }) => {
     URL.revokeObjectURL(url);
   };
 
-  // Helper to validate Indian mobile number
-  function isValidIndianMobile(number) {
-    return /^\d{10}$/.test(number);
-  }
-
-  // Helper to build WhatsApp message
-  function buildWhatsAppMessage(customer, bill) {
-    return [
-      `Hello ${customer.name},`,
-      'Here are your bill details:',
-      `Bill No: ${bill.billNumber}`,
-      `Amount: ₹${bill.totalAmount}`,
-      `Status: ${bill.paymentStatus}`,
-      '',
-      'Thank you for shopping with us!'
-    ].join('%0A');
-  }
-
   return (
     <div className="space-y-8 animate-fadeIn">
       {/* Enhanced Header */}
@@ -2080,16 +2160,6 @@ const CustomersSection = ({ bills, fetchBills }) => {
             <p className="text-gray-600">Manage customer relationships and payment tracking</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex items-center space-x-4 text-sm text-gray-600">
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span>Paid: ₹{totalPaid.toLocaleString()}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span>Pending: ₹{totalPending.toLocaleString()}</span>
-              </div>
-            </div>
             <button
               onClick={exportCSV}
               className="bg-gradient-to-r from-purple-500 to-purple-600 text-white px-6 py-3 rounded-lg shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center space-x-2 font-semibold text-lg hover:from-purple-600 hover:to-purple-700 focus:outline-none focus:ring-4 focus:ring-purple-300 focus:ring-opacity-50"
@@ -2236,10 +2306,10 @@ const CustomersSection = ({ bills, fetchBills }) => {
                         {bill.billNumber}
                       </span>
                       <div className="flex items-center space-x-2">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105 ${
-                          bill.paymentStatus === 'paid' ? 'bg-green-100 text-green-700 hover:bg-green-200' :
-                          bill.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' :
-                          'bg-red-100 text-red-700 hover:bg-red-200'
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 hover:scale-105 ${
+                          bill.paymentStatus === 'paid' ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' :
+                          bill.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200' :
+                          'bg-red-100 text-red-700 border-red-200 hover:bg-red-200'
                         }`}>
                           {bill.paymentStatus}
                         </span>
@@ -2276,7 +2346,9 @@ const CustomersSection = ({ bills, fetchBills }) => {
                     {selectedCustomer.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">{selectedCustomer.name}</h3>
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {selectedCustomer.name}
+                    </h3>
                     {selectedCustomer.phone && (
                       <p className="text-gray-600">📱 {selectedCustomer.phone}</p>
                     )}
@@ -2286,7 +2358,7 @@ const CustomersSection = ({ bills, fetchBills }) => {
                   onClick={() => setShowModal(false)}
                   className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-all duration-200 hover:scale-110"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -2294,30 +2366,23 @@ const CustomersSection = ({ bills, fetchBills }) => {
             {/* Customer Summary */}
             <div className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="bg-green-50 rounded-xl p-4 border border-green-200">
+                <div className="bg-green-50 rounded-xl p-4 border border-green-200 shadow-sm">
                   <h4 className="text-sm font-medium text-green-700 mb-1">Total Paid</h4>
                   <p className="text-2xl font-bold text-green-900">
-                    ₹{selectedCustomer.bills.filter(b => b.paymentStatus === 'paid').reduce((s, b) => s + b.totalAmount, 0).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">
-                    {selectedCustomer.bills.filter(b => b.paymentStatus === 'paid').length} bills
+                    ₹{totalPaid.toLocaleString()}
                   </p>
                 </div>
-                <div className="bg-red-50 rounded-xl p-4 border border-red-200">
+                <div className="bg-red-50 rounded-xl p-4 border border-red-200 shadow-sm">
                   <h4 className="text-sm font-medium text-red-700 mb-1">Total Pending</h4>
                   <p className="text-2xl font-bold text-red-900">
-                    ₹{selectedCustomer.bills.filter(b => b.paymentStatus !== 'paid').reduce((s, b) => s + b.totalAmount, 0).toLocaleString()}
-                  </p>
-                  <p className="text-xs text-red-600 mt-1">
-                    {selectedCustomer.bills.filter(b => b.paymentStatus !== 'paid').length} bills
+                    ₹{totalPending.toLocaleString()}
                   </p>
                 </div>
-                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
+                <div className="bg-blue-50 rounded-xl p-4 border border-blue-200 shadow-sm">
                   <h4 className="text-sm font-medium text-blue-700 mb-1">Total Bills</h4>
                   <p className="text-2xl font-bold text-blue-900">
                     {selectedCustomer.bills.length}
                   </p>
-                  <p className="text-xs text-blue-600 mt-1">All time</p>
                 </div>
               </div>
 
@@ -2337,15 +2402,15 @@ const CustomersSection = ({ bills, fetchBills }) => {
                           </p>
                         </div>
                         <div className="flex items-center space-x-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all duration-200 hover:scale-105 ${
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold border transition-all duration-200 hover:scale-105 ${
                             bill.paymentStatus === 'paid' ? 'bg-green-100 text-green-700 border-green-200 hover:bg-green-200' :
                             bill.paymentStatus === 'partial' ? 'bg-yellow-100 text-yellow-700 border-yellow-200 hover:bg-yellow-200' :
                             'bg-red-100 text-red-700 border-red-200 hover:bg-red-200'
                           }`}>
-                            {bill.paymentStatus.charAt(0).toUpperCase() + bill.paymentStatus.slice(1)}
+                            {bill.paymentStatus}
                           </span>
-                          <span className="text-lg font-bold text-green-600">
-                            ₹{bill.totalAmount.toLocaleString()}
+                          <span className="font-semibold text-green-600 hover:text-green-700 transition-colors duration-200">
+                            ₹{bill.totalAmount}
                           </span>
                         </div>
                       </div>
@@ -2383,16 +2448,16 @@ const CustomersSection = ({ bills, fetchBills }) => {
                           </button>
                           {selectedCustomer.phone && (
                             <a
-                              href={`https://wa.me/91${selectedCustomer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(buildWhatsAppMessage(selectedCustomer, bill))}`}
+                              href={`https://wa.me/91${selectedCustomer.phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                `Hello ${selectedCustomer.name},\nHere are your bill details:\nBill No: ${bill.billNumber}\nAmount: ₹${bill.totalAmount}\nStatus: ${bill.paymentStatus}\nThank you for shopping with us!`
+                              )}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-500 hover:bg-green-600 hover:scale-110 transition-all duration-200 shadow-md text-white"
                               title="Send via WhatsApp"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24" className="w-4 h-4">
-                                <path d="M20.52 3.48A11.94 11.94 0 0012 0C5.37 0 0 5.37 0 12c0 2.12.55 4.13 1.6 5.92L0 24l6.18-1.62A11.94 11.94 0 0012 24c6.63 0 12-5.37 12-12 0-3.19-1.24-6.19-3.48-8.52zM12 22c-1.85 0-3.63-.5-5.18-1.44l-.37-.22-3.67.96.98-3.58-.24-.37A9.94 9.94 0 012 12c0-5.52 4.48-10 10-10s10 4.48 10 10-4.48 10-10 10zm5.07-7.75c-.28-.14-1.65-.81-1.9-.9-.25-.09-.43-.14-.61.14-.18.28-.7.9-.86 1.08-.16.18-.32.2-.6.07-.28-.14-1.18-.44-2.25-1.4-.83-.74-1.39-1.65-1.55-1.93-.16-.28-.02-.43.12-.57.13-.13.28-.34.42-.51.14-.17.18-.29.28-.48.09-.19.05-.36-.02-.5-.07-.14-.61-1.47-.84-2.01-.22-.53-.45-.46-.62-.47-.16-.01-.36-.01-.56-.01-.19 0-.5.07-.76.34-.26.27-1 1-.97 2.43.03 1.43 1.03 2.81 1.18 3 .15.19 2.03 3.1 4.93 4.23.69.3 1.23.48 1.65.61.69.22 1.32.19 1.81.12.55-.08 1.65-.67 1.88-1.32.23-.65.23-1.2.16-1.32-.07-.12-.25-.19-.53-.33z" />
-                              </svg>
+                              <MessageCircle className="h-3 w-3" />
                             </a>
                           )}
                         </div>
@@ -2408,5 +2473,26 @@ const CustomersSection = ({ bills, fetchBills }) => {
     </div>
   );
 };
+
+// Toast Component
+const Toast = ({ message, type, onClose }) => (
+  <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg max-w-sm animate-fadeIn ${
+    type === 'error' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+  }`}>
+    <div className="flex items-center justify-between">
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-4 text-white hover:text-gray-200">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  </div>
+);
+
+// Spinner Component
+const Spinner = () => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+  </div>
+);
 
 export default App;
